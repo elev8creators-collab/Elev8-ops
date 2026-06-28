@@ -1,119 +1,127 @@
 import { useState, useEffect } from 'react'
-import { Card, Btn, T } from './ui.jsx'
-import { todayStr, fmtDate } from '../lib/config.js'
+import { C, Btn, Skeleton } from './ui.jsx'
+import { todayStr } from '../lib/config.js'
 import { getTeamMembers } from '../lib/supabase.js'
-import PINGate  from './PINGate.jsx'
-import LogMyDay from './LogMyDay.jsx'
-import MyStats  from './MyStats.jsx'
+import PINGate   from './PINGate.jsx'
+import LogMyDay  from './LogMyDay.jsx'
+import MyStats   from './MyStats.jsx'
 import TeamBoard from './TeamBoard.jsx'
 
-const TABS = [['log', 'Log my day'], ['stats', 'My stats'], ['team', 'Team']]
+const TABS = [
+  { id:'log',   label:'Log My Day',  icon:'✏️' },
+  { id:'stats', label:'My Stats',    icon:'📊' },
+  { id:'team',  label:'Leaderboard', icon:'🏆' },
+]
 
 export default function TeamPortal() {
-  const [members,    setMembers]    = useState([])
-  const [selected,   setSelected]   = useState(null) // { name }
-  const [member,     setMember]     = useState(null) // verified member
-  const [sub,        setSub]        = useState('log')
-  const [guestName,  setGuestName]  = useState('')
+  const [members,   setMembers]   = useState([])
+  const [loading,   setLoading]   = useState(true)
+  const [selected,  setSelected]  = useState(null)
+  const [member,    setMember]    = useState(null)
+  const [sub,       setSub]       = useState('log')
   const today = todayStr()
 
-  useEffect(() => { getTeamMembers().then(setMembers) }, [])
+  useEffect(() => {
+    getTeamMembers()
+      .then(d => { setMembers(d); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
 
-  // Name selected — show PIN gate
+  // PIN gate
   if (selected && !member) {
-    return (
-      <PINGate
-        memberName={selected.name}
-        onSuccess={(m) => setMember(m)}
-        onBack={() => setSelected(null)}
-      />
-    )
+    return <PINGate memberName={selected.name} initials={selected.initials} onSuccess={m => setMember(m)} onBack={() => setSelected(null)} />
   }
 
-  // Logged in — show portal
+  // Logged in — show sub-nav + content
   if (member) {
     return (
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: 8 }}>
-          <div style={{ display: 'flex', gap: 3, background: '#18181F', borderRadius: 11, padding: 4 }}>
-            {TABS.map(([v, l]) => (
-              <button key={v} onClick={() => setSub(v)} style={{
-                fontSize: 13, padding: '6px 14px', borderRadius: 8, border: 'none',
-                background: sub === v ? T.red : 'none',
-                color: sub === v ? '#fff' : T.muted,
-                fontWeight: sub === v ? 700 : 400,
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}>{l}</button>
-            ))}
+        {/* Sub nav */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1.5rem', flexWrap:'wrap', gap:8 }}>
+          <div style={{ display:'flex', gap:2, background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, padding:4 }}>
+            {TABS.map(t => {
+              const active = sub === t.id
+              return (
+                <button key={t.id} onClick={() => setSub(t.id)} style={{
+                  display:'flex', alignItems:'center', gap:6,
+                  fontSize:13, padding:'7px 14px', borderRadius:7, border:'none',
+                  background: active ? C.surface3 : 'none',
+                  color: active ? C.text : C.text3,
+                  fontWeight: active ? 600 : 400,
+                  cursor:'pointer', fontFamily:'inherit', transition:'all .15s',
+                }}>
+                  <span style={{ fontSize:14 }}>{t.icon}</span>{t.label}
+                </button>
+              )
+            })}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 12, color: T.muted }}>{member.name}</span>
-            <Btn variant="ghost" onClick={() => { setMember(null); setSelected(null) }} style={{ fontSize: 12, padding: '5px 10px' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <div style={{
+                width:28, height:28, borderRadius:'50%',
+                background:C.redDim, border:`1px solid ${C.redBorder}`,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:10, fontWeight:800, color:C.red,
+              }}>{member.initials}</div>
+              <span style={{ fontSize:13, color:C.text2, fontWeight:500 }}>{member.name}</span>
+            </div>
+            <Btn variant="ghost" size="sm" onClick={() => { setMember(null); setSelected(null) }}>
               Switch
             </Btn>
           </div>
         </div>
-        {sub === 'log'   && <LogMyDay  member={member} today={today} fmtDate={fmtDate} />}
-        {sub === 'stats' && <MyStats   member={member} today={today} />}
-        {sub === 'team'  && <TeamBoard today={today} />}
+
+        <div className="fade-in" key={sub}>
+          {sub === 'log'   && <LogMyDay  member={member} today={today} />}
+          {sub === 'stats' && <MyStats   member={member} today={today} />}
+          {sub === 'team'  && <TeamBoard today={today} />}
+        </div>
       </div>
     )
   }
 
   // Name picker
   return (
-    <div style={{ maxWidth: 400, margin: '2.5rem auto' }}>
-      <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-        <div style={{ fontSize: 36, marginBottom: 8 }}>👋</div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: T.text, marginBottom: 4 }}>Who are you?</div>
-        <div style={{ fontSize: 13, color: T.muted }}>Select your name to continue</div>
+    <div className="fade-in">
+      <div style={{ marginBottom:'1.5rem' }}>
+        <div style={{ fontSize:22, fontWeight:800, color:C.text, marginBottom:4 }}>Who are you?</div>
+        <div style={{ fontSize:13, color:C.text3 }}>Select your name to access your portal</div>
       </div>
 
-      {members.length === 0 ? (
-        <div style={{ textAlign: 'center', color: T.muted, padding: '1rem' }}>Loading team…</div>
+      {loading ? (
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {[1,2,3,4].map(i => <Skeleton key={i} height={64} radius={10} />)}
+        </div>
+      ) : members.length === 0 ? (
+        <div style={{ color:C.text3, padding:'2rem 0', fontSize:13 }}>No team members found. Contact your manager.</div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px,1fr))', gap:8, maxWidth:700 }}>
           {members.map(m => (
             <button key={m.id} onClick={() => setSelected(m)} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '13px 16px', borderRadius: 12,
-              border: '1px solid rgba(255,255,255,.06)', background: '#18181F',
-              cursor: 'pointer', color: T.text, fontFamily: 'inherit',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{
-                  width: 34, height: 34, borderRadius: '50%',
-                  background: 'rgba(226,75,74,.1)', border: '1px solid rgba(226,75,74,.3)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, fontWeight: 700, color: T.red,
-                }}>{m.initials}</div>
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>{m.name}</div>
-                  <div style={{ fontSize: 11, color: T.muted, textTransform: 'capitalize' }}>{m.role}</div>
-                </div>
+              display:'flex', alignItems:'center', gap:14,
+              padding:'14px 16px', borderRadius:10,
+              border:`1px solid ${C.border}`, background:C.surface,
+              cursor:'pointer', color:C.text, fontFamily:'inherit',
+              textAlign:'left', transition:'border-color .15s, background .15s',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = C.redBorder; e.currentTarget.style.background = C.surface2 }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = C.surface }}
+            >
+              <div style={{
+                width:40, height:40, borderRadius:'50%', flexShrink:0,
+                background:C.redDim, border:`1px solid ${C.redBorder}`,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:12, fontWeight:800, color:C.red,
+              }}>{m.initials}</div>
+              <div>
+                <div style={{ fontSize:14, fontWeight:600, marginBottom:2 }}>{m.name}</div>
+                <div style={{ fontSize:11, color:C.text3, textTransform:'capitalize' }}>{m.role}</div>
               </div>
-              <span style={{ color: T.red, fontSize: 16 }}>→</span>
+              <span style={{ color:C.red, fontSize:16, marginLeft:'auto' }}>→</span>
             </button>
           ))}
         </div>
       )}
-
-      {/* Guest slot */}
-      <div style={{ border: '1.5px dashed rgba(255,255,255,.08)', borderRadius: 12, padding: '1rem' }}>
-        <div style={{ fontSize: 12, color: T.muted, marginBottom: 8 }}>Someone else? Type your name:</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input placeholder="Your name" value={guestName} onChange={e => setGuestName(e.target.value)}
-            style={{ flex: 1, fontSize: 13, padding: '9px 11px', borderRadius: 8,
-              border: '1px solid rgba(255,255,255,.06)', background: '#18181F', color: T.text, outline: 'none' }} />
-          <Btn disabled={!guestName.trim()} onClick={() => {
-            const m = { id: 'guest', name: guestName.trim(), role: 'editor',
-              initials: guestName.trim().slice(0, 2).toUpperCase(), pin: '' }
-            setMember(m)
-          }}>
-            Go →
-          </Btn>
-        </div>
-      </div>
     </div>
   )
 }
