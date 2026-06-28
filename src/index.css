@@ -1,0 +1,35 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #09090F;
+  --card:     #111118;
+  --card2:    #18181F;
+  --red:      #E24B4A;
+  --red-dim:  rgba(226,75,74,0.12);
+  --red-border: rgba(226,75,74,0.35);
+  --text:     #EEEEF8;
+  --muted:    #6868A0;
+  --border:   rgba(255,255,255,0.06);
+  --success:  #4ADE80;
+  --warning:  #FBBF24;
+  --danger:   #F87171;
+  --radius:   10px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--card2); border-radius: 3px; }
+
+/* Form resets */
+input, select, textarea, button { font-family: inherit; }
+
+/* Utility */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
