@@ -1,129 +1,151 @@
 import { useState, useEffect } from 'react'
-import { Card, Btn, Input, Select, Badge, T } from './ui.jsx'
-import { TASK_TYPES } from '../lib/config.js'
+import { C, Card, Btn, Input, Select, Badge, Spinner } from './ui.jsx'
+import { getSettings } from '../lib/supabase.js'
 import { saveLog, loadDayLogs } from '../lib/supabase.js'
+import { fmtDate } from '../lib/config.js'
 
-function newEntry(role) {
-  const types = TASK_TYPES[role] || TASK_TYPES.editor
-  return { id: Date.now() + Math.random(), typeId: types[0].id, count: 1, note: '', client: '' }
+function newEntry(taskTypes) {
+  return { id: Date.now()+Math.random(), typeId: taskTypes[0]?.id, complexity:'standard', client:'', frameio:'', note:'', credits:0 }
 }
 
-export default function LogMyDay({ member, today, fmtDate }) {
-  const role = member.role
-  const types = TASK_TYPES[role] || TASK_TYPES.editor
-  const [entries, setEntries]     = useState([newEntry(role)])
+function calcEntryCredits(entry, taskTypes, complexity) {
+  const task = taskTypes.find(t => t.id === entry.typeId)
+  const comp = complexity.find(c => c.id === entry.complexity)
+  if (!task) return 0
+  return Math.round((task.base * (comp?.multiplier || 1)) * 10) / 10
+}
+
+export default function LogMyDay({ member, today }) {
+  const [settings, setSettings]   = useState(null)
+  const [entries, setEntries]     = useState([])
   const [submitted, setSubmitted] = useState(false)
-  const [savedLog, setSavedLog]   = useState(null)
   const [saving, setSaving]       = useState(false)
   const [error, setError]         = useState('')
+  const role = member.role
 
   useEffect(() => {
-    loadDayLogs(today).then(logs => {
-      const mine = logs.find(l => l.editor_name === member.name)
-      if (mine?.submitted_at) {
-        setSubmitted(true)
-        setSavedLog(mine)
-        if (mine.entries?.length) setEntries(mine.entries)
-      }
+    getSettings().then(s => {
+      setSettings(s)
+      const taskTypes = role === 'editor' ? s.taskTypes
+        : role === 'production' ? (s.productionTasks || []) : (s.socialTasks || [])
+      setEntries([newEntry(s.taskTypes)])
+      loadDayLogs(today).then(logs => {
+        const mine = logs.find(l => l.editor_name === member.name)
+        if (mine?.entries?.length) { setEntries(mine.entries); setSubmitted(true) }
+      })
     })
-  }, [member.name, today])
+  }, [])
 
-  const upd = (id, field, val) => setEntries(p => p.map(e => e.id === id ? { ...e, [field]: val } : e))
-  const totalCount = entries.reduce((s, e) => s + (Number(e.count) || 0), 0)
-  const onTarget   = totalCount >= 2
+  if (!settings) return (
+    <div style={{ display:'flex', alignItems:'center', gap:8, color:C.text3, padding:'2rem 0' }}>
+      <Spinner size={14} /> Loading…
+    </div>
+  )
 
-  const needsNote  = (e) => {
-    const t = types.find(t => t.id === e.typeId)
-    return t?.id === 'other' || t?.id === 'shoot'
+  const { taskTypes, complexity, weeklyTargets } = settings
+  const target = weeklyTargets[role] || 10
+  const entriesWithCredits = entries.map(e => ({ ...e, credits: calcEntryCredits(e, taskTypes, complexity) }))
+  const totalCredits = entriesWithCredits.reduce((s,e) => s + e.credits, 0)
+
+  function upd(id, field, val) {
+    setEntries(p => p.map(e => e.id === id ? { ...e, [field]: val } : e))
   }
 
   async function submit() {
-    for (const e of entries) {
-      if (needsNote(e) && !e.note.trim()) {
-        setError('Please fill in the notes field for highlighted entries.')
-        return
-      }
-    }
-    setError('')
-    setSaving(true)
+    setError(''); setSaving(true)
     const { error: err } = await saveLog({
       memberName: member.name,
       memberRole: role,
       logDate: today,
-      entries,
-      totalCount,
+      entries: entriesWithCredits.map(e => ({
+        ...e,
+        typeLabel: taskTypes.find(t=>t.id===e.typeId)?.label || e.typeId,
+      })),
+      totalCredits,
     })
     setSaving(false)
-    if (err) { setError('Could not save. Please try again.'); return }
+    if (err) { setError('Could not save. Try again.'); return }
     setSubmitted(true)
-    setSavedLog({ entries, totalCount })
   }
 
-  if (submitted && savedLog) {
+  if (submitted) {
     return (
-      <div style={{ textAlign: 'center', padding: '3rem 0' }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: T.text, marginBottom: 6 }}>Log submitted!</div>
-        <div style={{ fontSize: 13, color: T.muted, marginBottom: 28 }}>
-          {member.name} · {fmtDate(today)}<br />
-          <span style={{ color: T.success, fontWeight: 700 }}>{totalCount} tasks logged</span>
-        </div>
-        <Btn variant="ghost" onClick={() => { setSubmitted(false); setSavedLog(null); setEntries([newEntry(role)]) }}>
-          Edit submission
-        </Btn>
+      <div style={{ maxWidth:560, textAlign:'center', padding:'3rem 0' }} className="fade-in">
+        <div style={{ fontSize:48, marginBottom:12 }}>✅</div>
+        <div style={{ fontSize:22, fontWeight:800, color:C.text, marginBottom:6 }}>Log submitted!</div>
+        <div style={{ fontSize:13, color:C.text3, marginBottom:8 }}>{fmtDate(today)}</div>
+        <div style={{ fontSize:36, fontWeight:800, color:C.red, marginBottom:4 }}>{totalCredits}</div>
+        <div style={{ fontSize:13, color:C.text3, marginBottom:'2rem' }}>credits earned today</div>
+        <Btn variant="ghost" onClick={() => setSubmitted(false)}>Edit submission</Btn>
       </div>
     )
   }
 
   return (
-    <div>
-      <div style={{ color: T.muted, fontSize: 13, marginBottom: '1.25rem' }}>{fmtDate(today)}</div>
+    <div style={{ maxWidth:680 }} className="fade-in">
+      <div style={{ marginBottom:'1.5rem' }}>
+        <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:4 }}>Daily Log</div>
+        <div style={{ fontSize:13, color:C.text3 }}>{fmtDate(today)}</div>
+      </div>
 
-      {entries.map((e) => {
-        const t = types.find(t => t.id === e.typeId)
-        const isOther = e.typeId === 'other'
-        const isShoot = e.typeId === 'shoot'
+      {entriesWithCredits.map((e,idx) => {
+        const task = taskTypes.find(t => t.id === e.typeId)
+        const comp = complexity.find(c => c.id === e.complexity)
         return (
-          <Card key={e.id} style={{ marginBottom: 10 }}>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-              <Select value={e.typeId} onChange={ev => upd(e.id, 'typeId', ev.target.value)} style={{ flex: '1 1 160px' }}>
-                {types.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-              </Select>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto' }}>
-                <span style={{ fontSize: 12, color: T.muted, whiteSpace: 'nowrap' }}>How many?</span>
-                <input
-                  type="number"
-                  min="0"
-                  value={e.count}
-                  onChange={ev => upd(e.id, 'count', ev.target.value)}
-                  style={{
-                    width: 64, fontSize: 14, fontWeight: 700, textAlign: 'center',
-                    padding: '8px', borderRadius: 8, border: `1px solid rgba(226,75,74,0.4)`,
-                    background: 'rgba(226,75,74,0.06)', color: T.red, outline: 'none',
-                  }}
-                />
-                <span style={{ fontSize: 11, color: T.muted }}>{t?.unit || 'items'}</span>
+          <Card key={e.id} style={{ marginBottom:10, borderColor: e.credits > 0 ? C.border2 : C.border }}>
+            {/* Row 1: Task + Complexity */}
+            <div style={{ display:'flex', gap:8, marginBottom:10, flexWrap:'wrap' }}>
+              <div style={{ flex:'1 1 200px' }}>
+                <div style={{ fontSize:10, fontWeight:600, color:C.text3, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>Task Type</div>
+                <Select value={e.typeId} onChange={ev => upd(e.id,'typeId',ev.target.value)}>
+                  {taskTypes.map(t => <option key={t.id} value={t.id}>{t.label} ({t.base} cr)</option>)}
+                </Select>
+              </div>
+              <div style={{ flex:'1 1 160px' }}>
+                <div style={{ fontSize:10, fontWeight:600, color:C.text3, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>Complexity</div>
+                <Select value={e.complexity} onChange={ev => upd(e.id,'complexity',ev.target.value)}>
+                  {complexity.map(c => <option key={c.id} value={c.id}>{c.label} ×{c.multiplier}</option>)}
+                </Select>
+              </div>
+              <div style={{ flexShrink:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-end', paddingBottom:2 }}>
+                <div style={{ fontSize:10, fontWeight:600, color:C.text3, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>Credits</div>
+                <div style={{ fontSize:22, fontWeight:800, color: e.credits > 0 ? C.red : C.text3, minWidth:48, textAlign:'center' }}>{e.credits}</div>
               </div>
             </div>
 
-            {(isShoot || isOther) && (
-              <Input
-                placeholder={isShoot ? 'Client name *' : 'Describe what you did *'}
-                value={e.note}
-                onChange={ev => upd(e.id, 'note', ev.target.value)}
-                style={{ marginBottom: 0 }}
-              />
-            )}
+            {/* Row 2: Client + Frame.io */}
+            <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:10, fontWeight:600, color:C.text3, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>Client</div>
+                <Input placeholder="Client name" value={e.client} onChange={ev => upd(e.id,'client',ev.target.value)} />
+              </div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:10, fontWeight:600, color:C.text3, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>Frame.io link</div>
+                <Input placeholder="https://app.frame.io/…" value={e.frameio} onChange={ev => upd(e.id,'frameio',ev.target.value)} />
+              </div>
+            </div>
 
-            {!isShoot && !isOther && (
-              <div style={{ fontSize: 11, color: T.muted }}>{t?.sub}</div>
-            )}
+            {/* Row 3: Notes */}
+            <div style={{ marginBottom: entries.length > 1 ? 10 : 0 }}>
+              <div style={{ fontSize:10, fontWeight:600, color:C.text3, textTransform:'uppercase', letterSpacing:'.06em', marginBottom:5 }}>Notes</div>
+              <textarea
+                placeholder="Describe the complexity, tools used, why it took longer, anything relevant…"
+                value={e.note}
+                onChange={ev => upd(e.id,'note',ev.target.value)}
+                rows={2}
+                style={{ fontSize:13, padding:'9px 12px', borderRadius:8,
+                  border:`1px solid ${C.border2}`, background:C.surface2,
+                  color:C.text, outline:'none', width:'100%', resize:'vertical',
+                  fontFamily:'inherit',
+                }}
+              />
+            </div>
 
             {entries.length > 1 && (
-              <button
-                onClick={() => setEntries(p => p.filter(x => x.id !== e.id))}
-                style={{ marginTop: 8, fontSize: 11, padding: '3px 8px', borderRadius: 5, border: '1px solid rgba(248,113,113,.3)', background: 'none', color: T.danger, cursor: 'pointer' }}
-              >
+              <button onClick={() => setEntries(p => p.filter(x => x.id !== e.id))}
+                style={{ fontSize:11, padding:'3px 8px', borderRadius:6,
+                  border:'1px solid rgba(255,69,58,.25)', background:'none',
+                  color:C.danger, cursor:'pointer', fontFamily:'inherit' }}>
                 Remove
               </button>
             )}
@@ -131,34 +153,35 @@ export default function LogMyDay({ member, today, fmtDate }) {
         )
       })}
 
-      <button
-        onClick={() => setEntries(p => [...p, newEntry(role)])}
-        style={{ width: '100%', padding: '11px', fontSize: 13, borderRadius: 10, border: '1.5px dashed rgba(255,255,255,.08)', background: 'none', color: T.muted, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit', marginBottom: '1rem' }}
-      >
+      {/* Add task */}
+      <button onClick={() => setEntries(p => [...p, newEntry(taskTypes)])}
+        style={{ width:'100%', padding:'10px', fontSize:13, borderRadius:10,
+          border:`1.5px dashed ${C.border2}`, background:'none',
+          color:C.text3, cursor:'pointer', marginBottom:'1.25rem', fontFamily:'inherit' }}>
         + Add another task
       </button>
 
+      {/* Summary bar */}
       <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
-        padding: '12px 16px', borderRadius: 12, marginBottom: '1rem',
-        background: onTarget ? 'rgba(74,222,128,.07)' : 'rgba(226,75,74,.07)',
-        border: `1px solid ${onTarget ? 'rgba(74,222,128,.3)' : 'rgba(226,75,74,.3)'}`,
+        display:'flex', alignItems:'center', justifyContent:'space-between',
+        padding:'14px 18px', borderRadius:12, marginBottom:'1rem',
+        background: totalCredits > 0 ? `linear-gradient(135deg, ${C.redDim}, transparent)` : C.surface,
+        border:`1px solid ${totalCredits > 0 ? C.redBorder : C.border}`,
       }}>
         <div>
-          <span style={{ fontSize: 13, color: T.muted }}>Today: </span>
-          <span style={{ fontSize: 18, fontWeight: 700, color: onTarget ? T.success : T.red }}>
-            {totalCount} task{totalCount !== 1 ? 's' : ''} logged
-          </span>
+          <div style={{ fontSize:12, color:C.text3, marginBottom:2 }}>Total credits today</div>
+          <div style={{ fontSize:28, fontWeight:800, color:C.red }}>{totalCredits}</div>
         </div>
-        <Badge color={onTarget ? 'green' : 'crimson'}>{onTarget ? 'On target ✓' : 'Below minimum'}</Badge>
+        <div style={{ textAlign:'right' }}>
+          <div style={{ fontSize:12, color:C.text3, marginBottom:2 }}>Weekly target</div>
+          <div style={{ fontSize:16, fontWeight:700, color:C.text2 }}>{target} cr</div>
+        </div>
       </div>
 
-      {error && (
-        <div style={{ fontSize: 12, color: T.danger, marginBottom: 10, padding: '8px 12px', background: 'rgba(248,113,113,.08)', borderRadius: 8 }}>{error}</div>
-      )}
+      {error && <div style={{ fontSize:12, color:C.danger, marginBottom:10, padding:'8px 12px', background:'rgba(255,69,58,.08)', borderRadius:8 }}>{error}</div>}
 
-      <Btn onClick={submit} disabled={saving} style={{ width: '100%', padding: 14, fontSize: 14, borderRadius: 12 }}>
-        {saving ? 'Saving…' : 'Submit end-of-day log →'}
+      <Btn onClick={submit} disabled={saving} size="lg" style={{ width:'100%' }}>
+        {saving ? <><Spinner size={14} /> Saving…</> : 'Submit end-of-day log →'}
       </Btn>
     </div>
   )
