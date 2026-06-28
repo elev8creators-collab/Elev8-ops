@@ -1,24 +1,27 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        #07070E;
-  --surface:   #0F0F1A;
-  --surface2:  #161623;
-  --surface3:  #1E1E2E;
+  --bg:        #FFFFFF;
+  --surface:   #FAFAFA;
+  --surface2:  #F4F4F6;
+  --surface3:  #EBEBEF;
   --red:       #E5484D;
-  --red-dim:   rgba(229,72,77,0.10);
-  --red-glow:  rgba(229,72,77,0.20);
-  --red-border:rgba(229,72,77,0.30);
-  --text:      #F2F2F8;
-  --text2:     #A0A0C0;
-  --text3:     #60607A;
-  --border:    rgba(255,255,255,0.06);
-  --border2:   rgba(255,255,255,0.10);
-  --success:   #30D158;
-  --warning:   #FFD60A;
-  --danger:    #FF453A;
-  --blue:      #0A84FF;
-  --purple:    #BF5AF2;
+  --red-dim:   rgba(229,72,77,0.07);
+  --red-glow:  rgba(229,72,77,0.15);
+  --red-border:rgba(229,72,77,0.25);
+  --text:      #111118;
+  --text2:     #4A4A6A;
+  --text3:     #9090B0;
+  --border:    rgba(0,0,0,0.07);
+  --border2:   rgba(0,0,0,0.12);
+  --success:   #1A9E4A;
+  --warning:   #C47B00;
+  --danger:    #D93025;
+  --blue:      #1966D2;
+  --purple:    #7C3AED;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.04);
   --r:         8px;
   --r2:        12px;
   --r3:        16px;
@@ -40,10 +43,10 @@ body {
 
 input, select, textarea, button { font-family: inherit; }
 
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
-@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-@keyframes slideIn { from { opacity:0; transform:translateX(-12px); } to { opacity:1; transform:translateX(0); } }
+@keyframes spin    { to { transform: rotate(360deg); } }
+@keyframes pulse   { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+@keyframes fadeIn  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+@keyframes slideIn { from { opacity:0; transform:translateX(-10px); } to { opacity:1; transform:translateX(0); } }
 
-.fade-in { animation: fadeIn 0.25s ease forwards; }
-.slide-in { animation: slideIn 0.2s ease forwards; }
+.fade-in  { animation: fadeIn  0.22s ease forwards; }
+.slide-in { animation: slideIn 0.18s ease forwards; }
