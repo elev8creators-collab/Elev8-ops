@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Card, ProgressBar, T } from './ui.jsx'
-import { loadRangeLogs, getTeamMembers } from '../lib/supabase.js'
+import { C, Card, ProgressBar, Badge, Skeleton } from './ui.jsx'
+import { loadRangeLogs, getTeamMembers, getSettings } from '../lib/supabase.js'
 import { getWeekDates, todayStr } from '../lib/config.js'
 
 export default function TeamBoard({ today }) {
@@ -8,57 +8,77 @@ export default function TeamBoard({ today }) {
 
   useEffect(() => {
     async function load() {
-      const dates   = getWeekDates()
-      const [logs, members] = await Promise.all([
+      const dates = getWeekDates()
+      const [logs, members, settings] = await Promise.all([
         loadRangeLogs(dates[0], dates[6]),
         getTeamMembers(),
+        getSettings(),
       ])
+      const target = settings.weeklyTargets
       const result = members.map(m => {
         const myLogs    = logs.filter(l => l.editor_name === m.name)
-        const weekTotal = myLogs.reduce((s, l) => s + (l.videos_done || 0), 0)
+        const weekTotal = myLogs.reduce((s,l) => s + (l.credits||0), 0)
         const todayLog  = myLogs.find(l => l.log_date === today)
-        return { ...m, weekTotal, todayCount: todayLog?.videos_done || 0, submitted: !!todayLog }
+        const t         = target[m.role] || 10
+        return { ...m, weekTotal, todayCredits: todayLog?.credits||0, submitted:!!todayLog, target:t }
       })
-      setData(result.sort((a, b) => b.weekTotal - a.weekTotal))
+      setData(result.sort((a,b) => b.weekTotal - a.weekTotal))
     }
     load()
   }, [today])
 
-  if (!data) return <div style={{ color: T.muted, textAlign: 'center', padding: '2rem 0' }}>Loading team…</div>
+  if (!data) return (
+    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+      {[1,2,3].map(i => <Skeleton key={i} height={90} radius={12} />)}
+    </div>
+  )
 
   const maxWeek = Math.max(...data.map(d => d.weekTotal), 1)
 
   return (
-    <div>
-      <div style={{ fontSize: 12, color: T.muted, marginBottom: '1rem' }}>This week's leaderboard · Task counts only</div>
+    <div className="fade-in">
+      <div style={{ marginBottom:'1.25rem' }}>
+        <div style={{ fontSize:20, fontWeight:800, color:C.text, marginBottom:4 }}>Leaderboard</div>
+        <div style={{ fontSize:13, color:C.text3 }}>This week's credits — task counts only visible to managers</div>
+      </div>
+
       {data.map((m, rank) => {
         const isTop = rank === 0 && m.weekTotal > 0
+        const pct   = m.weekTotal / m.target
+        const col   = pct >= 1 ? C.success : pct >= 0.5 ? C.warning : C.danger
         return (
-          <Card key={m.id} style={{ marginBottom: 10, borderColor: isTop ? 'rgba(226,75,74,.35)' : T.border }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+          <Card key={m.id} style={{ marginBottom:10, borderColor: isTop ? C.redBorder : C.border }}>
+            <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+              {/* Rank */}
               <div style={{
-                width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
-                background: isTop ? 'rgba(226,75,74,.12)' : 'rgba(255,255,255,.05)',
-                border: `1px solid ${isTop ? 'rgba(226,75,74,.4)' : 'rgba(255,255,255,.06)'}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: isTop ? 18 : 12, fontWeight: 700, color: isTop ? T.red : T.muted,
+                width:36, height:36, borderRadius:'50%', flexShrink:0,
+                background: isTop ? C.redDim : C.surface2,
+                border:`1px solid ${isTop ? C.redBorder : C.border}`,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:isTop?16:12, fontWeight:700, color:isTop?C.red:C.text3,
               }}>
-                {isTop ? '🏆' : `#${rank + 1}`}
+                {isTop ? '🏆' : `#${rank+1}`}
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>{m.name}</div>
-                <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>
-                  Today: {m.submitted
-                    ? <span style={{ color: m.todayCount >= 2 ? T.success : T.warning }}>{m.todayCount} tasks</span>
-                    : <span>not submitted yet</span>}
+              {/* Info */}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                  <span style={{ fontSize:14, fontWeight:600, color:C.text }}>{m.name}</span>
+                  <Badge color={m.submitted ? (m.todayCredits > 0 ? 'green' : 'amber') : 'muted'}>
+                    {m.submitted ? `${m.todayCredits} cr today` : 'Not submitted'}
+                  </Badge>
+                </div>
+                <ProgressBar value={m.weekTotal} max={m.target} color={col} />
+                <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
+                  <span style={{ fontSize:11, color:C.text3, textTransform:'capitalize' }}>{m.role}</span>
+                  <span style={{ fontSize:11, color:C.text3 }}>{m.weekTotal} / {m.target} cr</span>
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 24, fontWeight: 800, color: isTop ? T.red : T.text }}>{m.weekTotal}</div>
-                <div style={{ fontSize: 10, color: T.muted }}>this week</div>
+              {/* Big number */}
+              <div style={{ textAlign:'right', flexShrink:0 }}>
+                <div style={{ fontSize:28, fontWeight:800, color:isTop?C.red:C.text }}>{m.weekTotal}</div>
+                <div style={{ fontSize:10, color:C.text3 }}>credits</div>
               </div>
             </div>
-            <ProgressBar value={m.weekTotal} max={maxWeek} color={isTop ? T.red : m.weekTotal >= 10 ? T.success : T.warning} />
           </Card>
         )
       })}
