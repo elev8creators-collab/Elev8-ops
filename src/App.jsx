@@ -1,56 +1,74 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { C } from './components/ui.jsx'
 import TeamPortal   from './components/TeamPortal.jsx'
 import ManagerPortal from './components/ManagerPortal.jsx'
-import { T } from './components/ui.jsx'
+
+const NAV = [
+  { id:'team',    label:'Team Portal',  icon:'👥' },
+  { id:'manager', label:'Manager',      icon:'🔒' },
+]
 
 export default function App() {
   const [tab, setTab] = useState('team')
 
   return (
-    <div style={{ minHeight: '100vh', background: T.bg || '#09090F', color: T.text, fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+    <div style={{ display:'flex', minHeight:'100vh', background:C.bg }}>
 
-      {/* ── Navbar ── */}
-      <div style={{
-        background: '#111118', borderBottom: '1px solid rgba(255,255,255,0.06)',
-        padding: '0 1.5rem', display: 'flex', alignItems: 'center',
-        justifyContent: 'space-between', height: 56,
+      {/* ── Sidebar ── */}
+      <aside style={{
+        width: 220, flexShrink:0, background:C.surface,
+        borderRight:`1px solid ${C.border}`,
+        display:'flex', flexDirection:'column',
+        position:'fixed', top:0, left:0, bottom:0, zIndex:50,
       }}>
         {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 9, background: '#E24B4A',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 16, fontWeight: 900, color: '#fff', letterSpacing: '-.5px',
-          }}>8</div>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '-.2px' }}>
-              ELEV<span style={{ color: '#E24B4A' }}>8</span> MEDIA
-            </div>
-            <div style={{ fontSize: 9, color: '#6868A0', textTransform: 'uppercase', letterSpacing: '.1em', marginTop: 1 }}>
-              Operations
-            </div>
+        <div style={{ padding:'1.25rem 1.25rem 1rem', borderBottom:`1px solid ${C.border}` }}>
+          <div style={{ fontSize:13, fontWeight:800, letterSpacing:'.12em', color:C.text, textTransform:'uppercase' }}>
+            ELEV<span style={{ color:C.red }}>8</span> MEDIA
+          </div>
+          <div style={{ fontSize:10, color:C.text3, marginTop:2, letterSpacing:'.08em', textTransform:'uppercase' }}>
+            Operations
           </div>
         </div>
 
-        {/* Nav tabs */}
-        <div style={{ display: 'flex', gap: 4 }}>
-          {[['team', 'Team portal'], ['manager', '🔒 Manager']].map(([v, l]) => (
-            <button key={v} onClick={() => setTab(v)} style={{
-              fontSize: 12, padding: '6px 14px', borderRadius: 8, border: 'none',
-              background: tab === v ? 'rgba(226,75,74,.12)' : 'none',
-              color: tab === v ? '#E24B4A' : '#6868A0',
-              fontWeight: tab === v ? 700 : 400,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>{l}</button>
-          ))}
-        </div>
-      </div>
+        {/* Nav */}
+        <nav style={{ flex:1, padding:'0.75rem 0.5rem', display:'flex', flexDirection:'column', gap:2 }}>
+          {NAV.map(n => {
+            const active = tab === n.id
+            return (
+              <button key={n.id} onClick={() => setTab(n.id)} style={{
+                display:'flex', alignItems:'center', gap:10,
+                padding:'9px 14px', borderRadius:8, border:'none',
+                background: active ? C.redDim : 'none',
+                color: active ? C.red : C.text2,
+                fontWeight: active ? 700 : 500,
+                fontSize: 13, cursor:'pointer', fontFamily:'inherit',
+                textAlign:'left', width:'100%',
+                borderLeft: active ? `2px solid ${C.red}` : '2px solid transparent',
+                transition:'all .15s',
+              }}>
+                <span style={{ fontSize:15 }}>{n.icon}</span>
+                {n.label}
+              </button>
+            )
+          })}
+        </nav>
 
-      {/* ── Content ── */}
-      <div style={{ maxWidth: 860, margin: '0 auto', padding: '1.5rem 1rem' }}>
-        {tab === 'team'    && <TeamPortal />}
-        {tab === 'manager' && <ManagerPortal />}
-      </div>
+        {/* Footer */}
+        <div style={{ padding:'0.75rem 1rem', borderTop:`1px solid ${C.border}` }}>
+          <div style={{ fontSize:10, color:C.text3, letterSpacing:'.05em' }}>
+            ELEV8 MEDIA OPS • V3
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Main content ── */}
+      <main style={{ marginLeft:220, flex:1, minHeight:'100vh', padding:'2rem', maxWidth:'calc(100vw - 220px)' }}>
+        <div className="fade-in" key={tab}>
+          {tab === 'team'    && <TeamPortal />}
+          {tab === 'manager' && <ManagerPortal />}
+        </div>
+      </main>
     </div>
   )
 }
