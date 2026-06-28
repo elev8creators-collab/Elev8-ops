@@ -1,35 +1,49 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:       #09090F;
-  --card:     #111118;
-  --card2:    #18181F;
-  --red:      #E24B4A;
-  --red-dim:  rgba(226,75,74,0.12);
-  --red-border: rgba(226,75,74,0.35);
-  --text:     #EEEEF8;
-  --muted:    #6868A0;
-  --border:   rgba(255,255,255,0.06);
-  --success:  #4ADE80;
-  --warning:  #FBBF24;
-  --danger:   #F87171;
-  --radius:   10px;
+  --bg:        #07070E;
+  --surface:   #0F0F1A;
+  --surface2:  #161623;
+  --surface3:  #1E1E2E;
+  --red:       #E5484D;
+  --red-dim:   rgba(229,72,77,0.10);
+  --red-glow:  rgba(229,72,77,0.20);
+  --red-border:rgba(229,72,77,0.30);
+  --text:      #F2F2F8;
+  --text2:     #A0A0C0;
+  --text3:     #60607A;
+  --border:    rgba(255,255,255,0.06);
+  --border2:   rgba(255,255,255,0.10);
+  --success:   #30D158;
+  --warning:   #FFD60A;
+  --danger:    #FF453A;
+  --blue:      #0A84FF;
+  --purple:    #BF5AF2;
+  --r:         8px;
+  --r2:        12px;
+  --r3:        16px;
 }
 
+html { height: 100%; }
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--card2); border-radius: 3px; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
 
-/* Form resets */
 input, select, textarea, button { font-family: inherit; }
 
-/* Utility */
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+@keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes slideIn { from { opacity:0; transform:translateX(-12px); } to { opacity:1; transform:translateX(0); } }
+
+.fade-in { animation: fadeIn 0.25s ease forwards; }
+.slide-in { animation: slideIn 0.2s ease forwards; }
