@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { DEFAULT_TASK_TYPES, WEEKLY_TARGETS } from '../config.js'
 import { submitLog, getMemberLogsForDate, getMemberDateStr, getWeekRange, getMonthRange, getLogsInRange, aggregateStats } from '../data.js'
+import { fetchMemberTasks, getTaskStatusColor, formatDueDate, MEMBER_LIST_IDS } from '../clickup.js'
 
 const COLOR_MAP = {
   blue: '#6366f1', teal: '#22d3a5', purple: '#8b5cf6',
@@ -20,13 +21,19 @@ export default function MemberDashboard({ member, onBack }) {
   const [error, setError] = useState(null)
   const [selectedTask, setSelectedTask] = useState('')
   const [taskCount, setTaskCount] = useState(1)
+  const [clickupTasks, setClickupTasks] = useState([])
+  const [clickupLoading, setClickupLoading] = useState(false)
+  const hasClickup = !!MEMBER_LIST_IDS[member.name]
 
   const dateStr = getMemberDateStr(member.name)
   const weekRange = getWeekRange()
   const monthRange = getMonthRange()
   const weeklyTarget = WEEKLY_TARGETS[member.role] || 14
 
-  useEffect(() => { loadData() }, [member.name])
+  useEffect(() => {
+    loadData()
+    loadClickup()
+  }, [member.name])
 
   const loadData = async () => {
     setLoading(true)
@@ -46,6 +53,16 @@ export default function MemberDashboard({ member, onBack }) {
       setError(e.message)
     }
     setLoading(false)
+  }
+
+  const loadClickup = async () => {
+    if (!MEMBER_LIST_IDS[member.name]) return
+    setClickupLoading(true)
+    try {
+      const tasks = await fetchMemberTasks(member.name)
+      setClickupTasks(tasks)
+    } catch(e) { console.warn(e) }
+    setClickupLoading(false)
   }
 
   // FIX Bug 2: proper handler using event value directly
@@ -95,8 +112,8 @@ export default function MemberDashboard({ member, onBack }) {
   const weekPts = weekStats ? weekStats.totalPoints : 0
   const weekProgress = Math.min((weekPts / weeklyTarget) * 100, 100)
 
-  const tabs = ['log', 'today', 'stats']
-  const tabLabels = { log: '+ Log Work', today: "Today's Activity", stats: 'My Stats' }
+  const tabs = hasClickup ? ['log', 'today', 'stats', 'tasks'] : ['log', 'today', 'stats']
+  const tabLabels = { log: '+ Log Work', today: "Today's Activity", stats: 'My Stats', tasks: '📋 My Tasks' }
 
   return (
     <div className="animate-in">
@@ -300,6 +317,85 @@ export default function MemberDashboard({ member, onBack }) {
                   <div><div className="label">Total Points</div><div style={{ fontSize: 28, fontWeight: 700, color: '#818cf8' }}>{todayPoints}</div></div>
                   <div><div className="label">Log Entries</div><div style={{ fontSize: 28, fontWeight: 700, color: '#fbbf24' }}>{todayLogs.length}</div></div>
                 </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ClickUp Tasks Tab */}
+      {tab === 'tasks' && (
+        <div>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+            <div>
+              <div style={{ fontWeight:700, fontSize:16 }}>Your ClickUp Tasks</div>
+              <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>Tasks assigned to you in the Editors space</div>
+            </div>
+            <button className="btn btn-ghost" onClick={loadClickup} style={{ padding:'6px 12px', fontSize:12 }}>↻ Refresh</button>
+          </div>
+          {clickupLoading ? (
+            <div style={{ textAlign:'center', padding:40, color:'var(--text2)' }}>Loading your tasks...</div>
+          ) : clickupTasks.length === 0 ? (
+            <div style={{ textAlign:'center', padding:60, color:'var(--text2)' }}>
+              <div style={{ fontSize:40, marginBottom:12 }}>✅</div>
+              <div>No open tasks — you're all caught up!</div>
+            </div>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {clickupTasks.map((task, i) => {
+                const statusColor = getTaskStatusColor(task.status?.status)
+                const due = formatDueDate(task.due_date)
+                return (
+                  <div key={task.id} style={{
+                    background:'var(--card2)', borderRadius:12, padding:'14px 16px',
+                    border:`1px solid rgba(255,255,255,0.06)`,
+                    borderLeft:`3px solid ${statusColor}`,
+                    animation:`slideIn 0.3s ease ${i*60}ms both`,
+                  }}>
+                    <div style={{ display:'flex', alignItems:'flex-start', gap:12 }}>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontWeight:600, fontSize:14, marginBottom:6, lineHeight:1.3 }}>{task.name}</div>
+                        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                          <span style={{
+                            background:`${statusColor}22`, color:statusColor,
+                            border:`1px solid ${statusColor}44`,
+                            padding:'2px 10px', borderRadius:20, fontSize:11, fontWeight:600, textTransform:'uppercase',
+                          }}>{task.status?.status || 'open'}</span>
+                          {due && (
+                            <span style={{
+                              background:`${due.color}15`, color:due.color,
+                              border:`1px solid ${due.color}30`,
+                              padding:'2px 10px', borderRadius:20, fontSize:11, fontWeight:600,
+                            }}>{due.label}</span>
+                          )}
+                          {task.priority?.priority && task.priority.priority !== 'normal' && (
+                            <span style={{
+                              background:'rgba(239,68,68,0.1)', color:'#f87171',
+                              border:'1px solid rgba(239,68,68,0.2)',
+                              padding:'2px 10px', borderRadius:20, fontSize:11, fontWeight:600,
+                            }}>⚡ {task.priority.priority}</span>
+                          )}
+                        </div>
+                      </div>
+                      <a
+                        href={task.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          background:'rgba(99,102,241,0.15)', color:'#818cf8',
+                          border:'1px solid rgba(99,102,241,0.3)',
+                          padding:'6px 12px', borderRadius:8, fontSize:12, fontWeight:600,
+                          textDecoration:'none', flexShrink:0, whiteSpace:'nowrap',
+                        }}
+                      >
+                        Open ↗
+                      </a>
+                    </div>
+                  </div>
+                )
+              })}
+              <div style={{ textAlign:'center', padding:'12px 0', fontSize:12, color:'var(--text3)' }}>
+                {clickupTasks.length} task{clickupTasks.length!==1?'s':''} · Click "Open" to view in ClickUp
               </div>
             </div>
           )}
