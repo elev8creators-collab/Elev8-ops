@@ -285,3 +285,42 @@ select option { background: #1a1f35; }
   .main-content { margin-left: 60px; padding: 16px; }
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
 }
+
+/* ===== MOBILE OPTIMIZATION ===== */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    min-height: auto;
+    position: fixed;
+    bottom: 0;
+    top: auto;
+    left: 0;
+    right: 0;
+    flex-direction: row;
+    padding: 0;
+    border-right: none;
+    border-top: 1px solid var(--border);
+    z-index: 200;
+    height: 60px;
+    justify-content: space-around;
+    align-items: center;
+  }
+  .sidebar > div:first-child { display: none; }
+  .sidebar nav { flex-direction: row; padding: 0; flex: 1; }
+  .nav-item { flex-direction: column; gap: 2px; font-size: 10px; padding: 8px 16px; border-left: none; border-top: 3px solid transparent; justify-content: center; }
+  .nav-item.active { border-left: none; border-top-color: var(--blue); }
+  .nav-item span:first-child { font-size: 18px; }
+  .sidebar > div:last-child { display: none; }
+  .main-content { margin-left: 0; padding: 16px; padding-bottom: 80px; }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr !important; }
+  .page-title { font-size: 20px; }
+  .stat-number { font-size: 28px; }
+  /* Team portal: stack on mobile */
+  .team-layout { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 480px) {
+  .main-content { padding: 12px; padding-bottom: 80px; }
+  .card { padding: 14px; }
+  .btn { padding: 8px 14px; font-size: 13px; }
+}
