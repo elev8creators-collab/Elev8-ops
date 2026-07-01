@@ -485,7 +485,7 @@ function ReportsView({ weekData, monthData, weekRange, monthRange }) {
       <div className="card" style={{ border:'1px solid rgba(139,92,246,0.3)', boxShadow:'0 0 30px rgba(139,92,246,0.08)' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:28, paddingBottom:20, borderBottom:'1px solid var(--border)' }}>
           <div>
-            <div style={{ fontSize:22, fontWeight:700 }}>ELEV<span style={{ color:'#6366f1' }}>8</span> MEDIA</div>
+            <div style={{ fontSize:22, fontWeight:700 }}>ELEV<span style={{ color:'#ef4444' }}>8</span> MEDIA</div>
             <div style={{ fontSize:12, color:'var(--text3)' }}>Team Report Card</div>
           </div>
           <div style={{ textAlign:'right' }}>
