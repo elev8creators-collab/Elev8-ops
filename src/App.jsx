@@ -134,7 +134,7 @@ export default function App() {
       <JarvisIntro
         onEnterTeam={() => setScreen('team')}
         onEnterAdmin={() => { setLockScreen('manager'); setPin(''); setPinError(false) }}
-        onEnterClient={() => { setLockScreen('client'); setPin(''); setPinError(false) }}
+        onEnterClient={() => setScreen('client')}
       />
     )
   }
