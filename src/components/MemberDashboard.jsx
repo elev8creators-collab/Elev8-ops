@@ -30,6 +30,7 @@ export default function MemberDashboard({ member, onBack }) {
 
   const loadData = async () => {
     setLoading(true)
+    setError(null)
     try {
       const [todayData, weekData, monthData] = await Promise.all([
         getMemberLogsForDate(member.name, dateStr),
@@ -47,25 +48,34 @@ export default function MemberDashboard({ member, onBack }) {
     setLoading(false)
   }
 
+  // FIX Bug 2: proper handler using event value directly
+  const handleTaskSelect = (e) => {
+    setSelectedTask(e.target.value)
+  }
+
   const addTask = () => {
     if (!selectedTask) return
     const taskType = DEFAULT_TASK_TYPES.find(t => t.id === selectedTask)
     if (!taskType) return
-    for (let i = 0; i < taskCount; i++) {
-      setTasks(prev => [...prev, { ...taskType, uid: Date.now() + i }])
+    const count = parseInt(taskCount) || 1
+    const newTasks = []
+    for (let i = 0; i < count; i++) {
+      newTasks.push({ ...taskType, uid: Date.now() + i })
     }
+    setTasks(prev => [...prev, ...newTasks])
     setSelectedTask('')
     setTaskCount(1)
   }
 
   const removeTask = (uid) => setTasks(prev => prev.filter(t => t.uid !== uid))
 
-  const totalPoints = tasks.reduce((s, t) => s + t.points, 0)
-  const totalVideos = tasks.reduce((s, t) => s + t.videos, 0)
+  const totalPoints = tasks.reduce((s, t) => s + (parseFloat(t.points) || 0), 0)
+  const totalVideos = tasks.reduce((s, t) => s + (parseInt(t.videos) || 0), 0)
 
   const handleSubmit = async () => {
-    if (tasks.length === 0) return
+    if (tasks.length === 0 || submitting) return
     setSubmitting(true)
+    setError(null)
     try {
       await submitLog(member.name, tasks, notes)
       setSubmitted(true)
@@ -80,9 +90,10 @@ export default function MemberDashboard({ member, onBack }) {
   }
 
   const accentColor = COLOR_MAP[member.color] || COLOR_MAP.blue
-  const todayPoints = todayLogs.reduce((s, l) => s + (l.total_points || 0), 0)
-  const todayVideos = todayLogs.reduce((s, l) => s + (l.total_videos || 0), 0)
-  const weekProgress = weekStats ? Math.min((weekStats.totalPoints / weeklyTarget) * 100, 100) : 0
+  const todayPoints = todayLogs.reduce((s, l) => s + (parseFloat(l.total_points) || 0), 0)
+  const todayVideos = todayLogs.reduce((s, l) => s + (parseInt(l.total_videos) || 0), 0)
+  const weekPts = weekStats ? weekStats.totalPoints : 0
+  const weekProgress = Math.min((weekPts / weeklyTarget) * 100, 100)
 
   const tabs = ['log', 'today', 'stats']
   const tabLabels = { log: '+ Log Work', today: "Today's Activity", stats: 'My Stats' }
@@ -96,7 +107,7 @@ export default function MemberDashboard({ member, onBack }) {
           width: 48, height: 48, borderRadius: '50%',
           background: `${accentColor}22`, border: `1px solid ${accentColor}44`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 16, fontWeight: 700, color: accentColor,
+          fontSize: 16, fontWeight: 700, color: accentColor, flexShrink: 0,
         }}>
           {member.name.slice(0,2).toUpperCase()}
         </div>
@@ -114,22 +125,18 @@ export default function MemberDashboard({ member, onBack }) {
       <div className="grid-3" style={{ marginBottom: 24, gap: 12 }}>
         <StatCard label="Today Videos" value={todayVideos} color={accentColor} suffix="🎬" />
         <StatCard label="Today Points" value={todayPoints} color={accentColor} suffix="⭐" />
-        <StatCard label="Week Progress" value={`${Math.round(weekProgress)}%`} color={accentColor} isPercent progress={weekProgress} />
+        <StatCard label="Week Progress" value={`${Math.round(weekProgress)}%`} color={accentColor} progress={weekProgress} />
       </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'var(--card)', borderRadius: 10, padding: 4, width: 'fit-content' }}>
         {tabs.map(t => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            style={{
-              padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-              background: tab === t ? accentColor : 'transparent',
-              color: tab === t ? '#fff' : 'var(--text2)',
-              transition: 'all 0.2s',
-            }}
-          >
+          <button key={t} onClick={() => setTab(t)} style={{
+            padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+            background: tab === t ? accentColor : 'transparent',
+            color: tab === t ? '#fff' : 'var(--text2)',
+            transition: 'all 0.2s', border: 'none', cursor: 'pointer',
+          }}>
             {tabLabels[t]}
           </button>
         ))}
@@ -138,24 +145,40 @@ export default function MemberDashboard({ member, onBack }) {
       {/* Log Work Tab */}
       {tab === 'log' && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-          {/* Add Tasks */}
           <div className="card blue">
             <div className="label" style={{ marginBottom: 16 }}>Add Tasks</div>
+
+            {/* FIX Bug 2: use onChange with handleTaskSelect */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-              <select value={selectedTask} onChange={e => setSelectedTask(e.target.value)} style={{ flex: 1 }}>
+              <select
+                value={selectedTask}
+                onChange={handleTaskSelect}
+                style={{ flex: 1 }}
+              >
                 <option value="">Select task type...</option>
                 {DEFAULT_TASK_TYPES.map(t => (
-                  <option key={t.id} value={t.id}>{t.label} — {t.points}pts{t.videos > 0 ? ` · ${t.videos} vid` : ''}</option>
+                  <option key={t.id} value={t.id}>
+                    {t.label} — {t.points}pts{t.videos > 0 ? ` · 🎬` : ''}
+                  </option>
                 ))}
               </select>
               <input
                 type="number" min="1" max="20"
-                value={taskCount} onChange={e => setTaskCount(parseInt(e.target.value) || 1)}
+                value={taskCount}
+                onChange={e => setTaskCount(Math.max(1, parseInt(e.target.value) || 1))}
                 style={{ width: 60 }}
               />
-              <button className="btn btn-blue" onClick={addTask} style={{ padding: '10px 16px' }}>+</button>
+              <button
+                className="btn btn-blue"
+                onClick={addTask}
+                disabled={!selectedTask}
+                style={{ padding: '10px 16px', opacity: selectedTask ? 1 : 0.5 }}
+              >
+                +
+              </button>
             </div>
 
+            {/* Task list */}
             {tasks.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
                 {tasks.map(t => (
@@ -165,9 +188,12 @@ export default function MemberDashboard({ member, onBack }) {
                     borderLeft: `3px solid ${COLOR_MAP[t.color] || '#6366f1'}`,
                   }}>
                     <span style={{ flex: 1, fontSize: 13 }}>{t.label}</span>
-                    <span className={`badge ${t.color}`}>{t.points}pts</span>
-                    {t.videos > 0 && <span className="badge teal">🎬 {t.videos}</span>}
-                    <button onClick={() => removeTask(t.uid)} style={{ color: '#f87171', background: 'none', fontSize: 16, lineHeight: 1 }}>×</button>
+                    <span className={`badge ${t.color || 'blue'}`}>{t.points}pts</span>
+                    {t.videos > 0 && <span className="badge teal">🎬</span>}
+                    <button
+                      onClick={() => removeTask(t.uid)}
+                      style={{ color: '#f87171', background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', lineHeight: 1, padding: '0 4px' }}
+                    >×</button>
                   </div>
                 ))}
               </div>
@@ -180,48 +206,79 @@ export default function MemberDashboard({ member, onBack }) {
               style={{ height: 80, resize: 'vertical', marginBottom: 16 }}
             />
 
+            {/* Summary before submit */}
             {tasks.length > 0 && (
               <div style={{
                 background: 'rgba(99,102,241,0.1)', borderRadius: 10, padding: '12px 16px',
-                marginBottom: 16, display: 'flex', gap: 20,
+                marginBottom: 16, display: 'flex', gap: 24,
               }}>
-                <div><span style={{ color: 'var(--text2)', fontSize: 12 }}>Videos</span><br /><span style={{ fontSize: 22, fontWeight: 700, color: '#22d3a5' }}>{totalVideos}</span></div>
-                <div><span style={{ color: 'var(--text2)', fontSize: 12 }}>Points</span><br /><span style={{ fontSize: 22, fontWeight: 700, color: '#818cf8' }}>{totalPoints}</span></div>
-                <div><span style={{ color: 'var(--text2)', fontSize: 12 }}>Tasks</span><br /><span style={{ fontSize: 22, fontWeight: 700, color: '#fbbf24' }}>{tasks.length}</span></div>
+                <div>
+                  <div style={{ color: 'var(--text2)', fontSize: 12 }}>Videos</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#22d3a5' }}>{totalVideos}</div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--text2)', fontSize: 12 }}>Points</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#818cf8' }}>{totalPoints}</div>
+                </div>
+                <div>
+                  <div style={{ color: 'var(--text2)', fontSize: 12 }}>Tasks</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: '#fbbf24' }}>{tasks.length}</div>
+                </div>
               </div>
             )}
 
             {submitted && (
               <div style={{ background: 'rgba(34,211,165,0.1)', border: '1px solid rgba(34,211,165,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, color: '#22d3a5', fontSize: 13 }}>
-                ✅ Log submitted successfully!
+                ✅ Log submitted! Check Today's Activity to verify.
               </div>
             )}
 
+            {error && (
+              <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 12, color: '#f87171', fontSize: 13 }}>
+                ❌ {error}
+              </div>
+            )}
+
+            {/* FIX Bug 5: disabled when no tasks */}
             <button
-              className="btn btn-teal"
+              className={tasks.length > 0 ? 'btn btn-teal' : 'btn btn-ghost'}
               onClick={handleSubmit}
               disabled={tasks.length === 0 || submitting}
-              style={{ width: '100%', justifyContent: 'center', opacity: tasks.length === 0 ? 0.5 : 1 }}
+              style={{
+                width: '100%', justifyContent: 'center',
+                opacity: tasks.length === 0 ? 0.4 : 1,
+                cursor: tasks.length === 0 ? 'not-allowed' : 'pointer',
+              }}
             >
-              {submitting ? 'Submitting...' : `Submit ${tasks.length} Task${tasks.length !== 1 ? 's' : ''}`}
+              {submitting ? '⏳ Submitting...' : tasks.length === 0 ? 'Add tasks above first' : `✓ Submit ${tasks.length} Task${tasks.length !== 1 ? 's' : ''}`}
             </button>
           </div>
 
-          {/* Task Reference */}
+          {/* Point Reference */}
           <div className="card">
             <div className="label" style={{ marginBottom: 16 }}>Point Reference</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {DEFAULT_TASK_TYPES.map(t => (
-                <div key={t.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '8px 0', borderBottom: '1px solid var(--border)',
-                }}>
+                <div
+                  key={t.id}
+                  onClick={() => setSelectedTask(t.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '10px 12px', borderRadius: 8, cursor: 'pointer',
+                    background: selectedTask === t.id ? 'rgba(99,102,241,0.1)' : 'transparent',
+                    transition: 'background 0.15s',
+                    border: selectedTask === t.id ? '1px solid rgba(99,102,241,0.3)' : '1px solid transparent',
+                  }}
+                >
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: COLOR_MAP[t.color] || '#6366f1', flexShrink: 0 }} />
                   <span style={{ flex: 1, fontSize: 13, color: 'var(--text2)' }}>{t.label}</span>
                   <span style={{ color: COLOR_MAP[t.color] || '#6366f1', fontWeight: 700, fontSize: 13 }}>{t.points}pts</span>
                   {t.videos > 0 && <span style={{ color: '#22d3a5', fontSize: 12 }}>🎬</span>}
                 </div>
               ))}
+            </div>
+            <div style={{ marginTop: 12, padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, fontSize: 12, color: 'var(--text3)' }}>
+              💡 Click any task above to select it, or use the dropdown
             </div>
           </div>
         </div>
@@ -230,10 +287,8 @@ export default function MemberDashboard({ member, onBack }) {
       {/* Today Tab */}
       {tab === 'today' && (
         <div>
-          {loading ? (
-            <LoadingState />
-          ) : todayLogs.length === 0 ? (
-            <EmptyState message="No logs submitted today yet." />
+          {loading ? <LoadingState /> : todayLogs.length === 0 ? (
+            <EmptyState message="No logs submitted today yet. Go to Log Work to add your tasks." />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {todayLogs.map((log, i) => (
@@ -254,7 +309,6 @@ export default function MemberDashboard({ member, onBack }) {
       {/* Stats Tab */}
       {tab === 'stats' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {/* Weekly */}
           <div className="card amber">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
               <div>
@@ -274,7 +328,6 @@ export default function MemberDashboard({ member, onBack }) {
             </div>
           </div>
 
-          {/* Monthly */}
           <div className="card purple">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
               <div>
@@ -291,24 +344,18 @@ export default function MemberDashboard({ member, onBack }) {
           </div>
         </div>
       )}
-
-      {error && (
-        <div style={{ marginTop: 16, padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, color: '#f87171', fontSize: 13 }}>
-          Error: {error}
-        </div>
-      )}
     </div>
   )
 }
 
-function StatCard({ label, value, color, suffix, isPercent, progress }) {
+function StatCard({ label, value, color, suffix, progress }) {
   return (
     <div className="card" style={{ borderColor: `${color}33`, padding: '16px 20px' }}>
       <div className="label" style={{ marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 32, fontWeight: 700, color, marginBottom: isPercent ? 10 : 0 }}>
+      <div style={{ fontSize: 32, fontWeight: 700, color, marginBottom: progress !== undefined ? 10 : 0 }}>
         {value}{suffix && <span style={{ fontSize: 18, marginLeft: 6 }}>{suffix}</span>}
       </div>
-      {isPercent && progress !== undefined && (
+      {progress !== undefined && (
         <div className="progress-bar">
           <div className="progress-fill" style={{ width: `${progress}%`, background: color }} />
         </div>
@@ -327,15 +374,17 @@ function MiniStat({ label, value, color }) {
 }
 
 function LogEntry({ log, index, accentColor }) {
-  const time = log.submitted_at ? new Date(log.submitted_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''
+  const time = log.submitted_at
+    ? new Date(log.submitted_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    : ''
   return (
     <div className="card" style={{ animation: `slideIn 0.3s ease ${index * 80}ms both`, borderLeft: `3px solid ${accentColor}` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-        <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <span className="badge teal">🎬 {log.total_videos} videos</span>
           <span className="badge blue">⭐ {log.total_points} pts</span>
         </div>
-        <span style={{ fontSize: 12, color: 'var(--text3)' }}>{time}</span>
+        <span style={{ fontSize: 12, color: 'var(--text3)', flexShrink: 0 }}>{time}</span>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {(log.tasks || []).map((t, i) => (
@@ -344,7 +393,7 @@ function LogEntry({ log, index, accentColor }) {
       </div>
       {log.notes && (
         <div style={{ marginTop: 10, fontSize: 13, color: 'var(--text2)', fontStyle: 'italic', borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-          {log.notes}
+          📝 {log.notes}
         </div>
       )}
     </div>
@@ -354,8 +403,8 @@ function LogEntry({ log, index, accentColor }) {
 function LoadingState() {
   return (
     <div style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>
-      <div style={{ fontSize: 32, marginBottom: 12 }}>⟳</div>
-      Loading...
+      <div style={{ fontSize: 32, marginBottom: 12, animation: 'pulse 1s infinite' }}>⟳</div>
+      Loading your data...
     </div>
   )
 }
