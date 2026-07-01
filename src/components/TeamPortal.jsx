@@ -1,153 +1,111 @@
-import { useState, useEffect } from 'react'
-import { C, Btn, Skeleton, Badge } from './ui.jsx'
-import { todayStr } from '../lib/config.js'
-import { getTeamMembers } from '../lib/supabase.js'
-import PINGate   from './PINGate.jsx'
-import LogMyDay  from './LogMyDay.jsx'
-import MyStats   from './MyStats.jsx'
-import TeamBoard from './TeamBoard.jsx'
+import React from 'react'
+import { TEAM_MEMBERS } from '../config.js'
 
-const TABS = [
-  { id:'log',   label:'Log My Day',  icon:'✏️' },
-  { id:'stats', label:'My Stats',    icon:'📊' },
-  { id:'team',  label:'Leaderboard', icon:'🏆' },
-]
+const COLOR_MAP = {
+  blue: { bg: 'rgba(99,102,241,0.2)', text: '#818cf8', border: 'rgba(99,102,241,0.3)' },
+  teal: { bg: 'rgba(34,211,165,0.2)', text: '#22d3a5', border: 'rgba(34,211,165,0.3)' },
+  purple: { bg: 'rgba(139,92,246,0.2)', text: '#a78bfa', border: 'rgba(139,92,246,0.3)' },
+  pink: { bg: 'rgba(236,72,153,0.2)', text: '#f472b6', border: 'rgba(236,72,153,0.3)' },
+  amber: { bg: 'rgba(245,158,11,0.2)', text: '#fbbf24', border: 'rgba(245,158,11,0.3)' },
+}
 
-export default function TeamPortal() {
-  const [members,  setMembers]  = useState([])
-  const [loading,  setLoading]  = useState(true)
-  const [selected, setSelected] = useState(null)
-  const [member,   setMember]   = useState(null)
-  const [sub,      setSub]      = useState('log')
-  const today = todayStr()
+const ROLE_COLORS = {
+  'Editor': 'blue',
+  'Production': 'amber',
+  'Social': 'teal',
+}
 
-  useEffect(() => {
-    getTeamMembers()
-      .then(d => { setMembers(d); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [])
-
-  function signOut() {
-    setMember(null)
-    setSelected(null)
-    setSub('log')
-  }
-
-  // PIN gate
-  if (selected && !member) {
-    return (
-      <PINGate
-        memberName={selected.name}
-        initials={selected.initials}
-        onSuccess={m => { setMember(m); setSub('log') }}
-        onBack={() => setSelected(null)}
-      />
-    )
-  }
-
-  // Logged in
-  if (member) {
-    return (
-      <div>
-        {/* Sub-nav */}
-        <div style={{
-          display:'flex', alignItems:'center', justifyContent:'space-between',
-          marginBottom:'1.75rem', flexWrap:'wrap', gap:8,
-          paddingBottom:'1.25rem', borderBottom:`1px solid ${C.border}`,
-        }}>
-          <div style={{ display:'flex', gap:2, background:C.surface2, borderRadius:10, padding:4 }}>
-            {TABS.map(t => {
-              const active = sub === t.id
-              return (
-                <button key={t.id} onClick={() => setSub(t.id)} style={{
-                  display:'flex', alignItems:'center', gap:6,
-                  fontSize:13, padding:'7px 14px', borderRadius:7, border:'none',
-                  background: active ? C.bg : 'none',
-                  color: active ? C.text : C.text3,
-                  fontWeight: active ? 600 : 400,
-                  cursor:'pointer', fontFamily:'inherit',
-                  boxShadow: active ? C.shadowSm : 'none',
-                  transition:'all .12s',
-                }}>
-                  <span>{t.icon}</span>{t.label}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* User pill */}
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8,
-              padding:'6px 12px', borderRadius:20,
-              background:C.surface2, border:`1px solid ${C.border}` }}>
-              <div style={{
-                width:24, height:24, borderRadius:'50%', flexShrink:0,
-                background:C.redDim, border:`1.5px solid ${C.redBorder}`,
-                display:'flex', alignItems:'center', justifyContent:'center',
-                fontSize:9, fontWeight:800, color:C.red,
-              }}>{member.initials}</div>
-              <span style={{ fontSize:13, color:C.text2, fontWeight:500 }}>{member.name}</span>
-            </div>
-            <Btn variant="ghost" size="sm" onClick={signOut}>Sign out</Btn>
-          </div>
-        </div>
-
-        <div className="fade-in" key={sub}>
-          {sub === 'log'   && <LogMyDay  member={member} today={today} onSignOut={signOut} />}
-          {sub === 'stats' && <MyStats   member={member} today={today} />}
-          {sub === 'team'  && <TeamBoard today={today} />}
-        </div>
-      </div>
-    )
-  }
-
-  // Name picker
+export default function TeamPortal({ onSelectMember }) {
   return (
-    <div className="fade-in">
-      <div style={{ marginBottom:'1.75rem' }}>
-        <div style={{ fontSize:26, fontWeight:800, color:C.text, letterSpacing:'-.4px', marginBottom:4 }}>
-          Who are you?
+    <div className="animate-in">
+      {/* Header */}
+      <div style={{ marginBottom: 36 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          <div className="live-dot" />
+          <span style={{ fontSize: 11, color: 'var(--text2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            Operations Live
+          </span>
         </div>
-        <div style={{ fontSize:14, color:C.text3 }}>Select your name to access your portal</div>
+        <h1 className="page-title">
+          Who are you <span style={{ color: '#6366f1' }}>today?</span>
+        </h1>
+        <p style={{ color: 'var(--text2)', fontSize: 15 }}>Select your profile to log your work</p>
       </div>
 
-      {loading ? (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:10, maxWidth:700 }}>
-          {[1,2,3,4,5,6].map(i => <Skeleton key={i} height={72} radius={12} />)}
-        </div>
-      ) : members.length === 0 ? (
-        <div style={{ color:C.text3, padding:'2rem 0', fontSize:14 }}>
-          No team members found. Contact your manager.
-        </div>
-      ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:10, maxWidth:680 }}>
-          {members.map(m => (
-            <button key={m.id} onClick={() => setSelected(m)} style={{
-              display:'flex', alignItems:'center', gap:14,
-              padding:'14px 16px', borderRadius:12,
-              border:`1px solid ${C.border}`, background:C.bg,
-              cursor:'pointer', color:C.text, fontFamily:'inherit', textAlign:'left',
-              boxShadow:C.shadowSm,
-              transition:'box-shadow .15s, border-color .15s, transform .1s',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.boxShadow=C.shadowMd; e.currentTarget.style.borderColor=C.redBorder; e.currentTarget.style.transform='translateY(-1px)' }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow=C.shadowSm; e.currentTarget.style.borderColor=C.border; e.currentTarget.style.transform='translateY(0)' }}
-            >
-              <div style={{
-                width:44, height:44, borderRadius:'50%', flexShrink:0,
-                background:C.redDim, border:`1.5px solid ${C.redBorder}`,
-                display:'flex', alignItems:'center', justifyContent:'center',
-                fontSize:13, fontWeight:800, color:C.red,
-              }}>{m.initials}</div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:15, fontWeight:700, color:C.text, marginBottom:2 }}>{m.name}</div>
-                <div style={{ fontSize:12, color:C.text3, textTransform:'capitalize' }}>{m.role}</div>
-              </div>
-              <span style={{ color:C.red, fontSize:18 }}>→</span>
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Team grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+        {TEAM_MEMBERS.map((member, i) => {
+          const color = COLOR_MAP[member.color] || COLOR_MAP.blue
+          const roleColor = ROLE_COLORS[member.role] || 'blue'
+          return (
+            <MemberCard
+              key={member.name}
+              member={member}
+              color={color}
+              roleColor={roleColor}
+              delay={i * 60}
+              onClick={() => onSelectMember(member)}
+            />
+          )
+        })}
+      </div>
+
+      {/* Footer note */}
+      <div style={{ marginTop: 40, padding: '16px 20px', background: 'rgba(99,102,241,0.06)', borderRadius: 10, border: '1px solid rgba(99,102,241,0.15)' }}>
+        <p style={{ fontSize: 13, color: 'var(--text2)' }}>
+          <span style={{ color: '#818cf8', fontWeight: 600 }}>🕐 Timezone aware:</span>{' '}
+          India team logs in IST · Narpat logs in EST · All data is accurate to your local date.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function MemberCard({ member, color, roleColor, delay, onClick }) {
+  const initials = member.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+
+  return (
+    <div
+      className="card"
+      onClick={onClick}
+      style={{
+        cursor: 'pointer',
+        borderColor: color.border,
+        boxShadow: `0 0 20px ${color.bg}`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16,
+        padding: '20px 24px',
+        animation: `fadeIn 0.4s ease ${delay}ms both`,
+        transition: 'transform 0.2s, box-shadow 0.2s',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'translateY(-2px)'
+        e.currentTarget.style.boxShadow = `0 8px 30px ${color.bg}`
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = 'translateY(0)'
+        e.currentTarget.style.boxShadow = `0 0 20px ${color.bg}`
+      }}
+    >
+      <div
+        className="avatar"
+        style={{
+          width: 48,
+          height: 48,
+          background: color.bg,
+          color: color.text,
+          fontSize: 16,
+          border: `1px solid ${color.border}`,
+        }}
+      >
+        {initials}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>{member.name}</div>
+        <span className={`badge ${roleColor}`}>{member.role}</span>
+      </div>
+      <div style={{ color: color.text, fontSize: 20, opacity: 0.6 }}>→</div>
     </div>
   )
 }
