@@ -12,8 +12,9 @@ const Logo = () => (
   </svg>
 )
 
-export default function Sidebar({ activeTab, onTeam, onManager, managerUnlocked, activeMember, onLock }) {
+export default function Sidebar({ activeTab, onTeam, onManager, onHome, managerUnlocked, activeMember, onLock }) {
   const navItems = [
+    { id:'home', icon:'⌂', label:'Home', onClick:onHome },
     { id:'team', icon:'◈', label:'Team Portal', onClick:onTeam },
     { id:'manager', icon:'⬡', label:'Manager', onClick:onManager, locked:!managerUnlocked },
   ]
@@ -26,7 +27,7 @@ export default function Sidebar({ activeTab, onTeam, onManager, managerUnlocked,
           <Logo />
           <div>
             <div style={{ fontSize:15, fontWeight:700, letterSpacing:'0.05em' }}>
-              ELEV<span style={{ color:'#6366f1' }}>8</span>
+              ELEV<span style={{ color:'#ef4444' }}>8</span>
             </div>
             <div style={{ fontSize:9, color:'var(--text3)', letterSpacing:'0.15em', textTransform:'uppercase' }}>
               Operations
