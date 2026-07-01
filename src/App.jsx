@@ -20,6 +20,7 @@ export default function App() {
 
   const handleManagerAccess = () => {
     setSidebarTab('manager')
+    setActiveMember(null) // Bug 8 fix: clear member when going to manager
     setScreen('manager-lock')
   }
 
@@ -83,8 +84,8 @@ export default function App() {
 
 function ManagerLock({ pin, setPin, onSubmit, error, onBack }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
-      <div className="card" style={{ width: 360, textAlign: 'center', padding: 40, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 0 40px rgba(99,102,241,0.1)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh', width: '100%' }}>
+      <div className="card" style={{ width: 380, maxWidth: '95%', textAlign: 'center', padding: 40, border: '1px solid rgba(99,102,241,0.3)', boxShadow: '0 0 40px rgba(99,102,241,0.1)' }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🔐</div>
         <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6 }}>Manager Access</h2>
         <p style={{ color: 'var(--text2)', fontSize: 13, marginBottom: 28 }}>Guri · Gurjinder · SMM lead only</p>
