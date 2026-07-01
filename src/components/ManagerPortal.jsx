@@ -174,13 +174,20 @@ function AnalyticsView({ weekData, monthData, weekRange, monthRange }) {
     return { day:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i], videos:dl.reduce((s,l)=>s+(parseInt(l.total_videos)||0),0), points:dl.reduce((s,l)=>s+(parseFloat(l.total_points)||0),0) }
   })
 
-  // Monthly daily chart
-  const monthChartData = Array.from({length:new Date(new Date(monthRange.end).getFullYear(), new Date(monthRange.end).getMonth()+1, 0).getDate()}, (_,i) => {
-    const d = new Date(monthRange.start); d.setDate(d.getDate()+i)
-    const ds = d.toISOString().slice(0,10)
-    const dl = monthData.filter(l=>l.log_date===ds)
-    return { day:`${i+1}`, videos:dl.reduce((s,l)=>s+(parseInt(l.total_videos)||0),0), points:dl.reduce((s,l)=>s+(parseFloat(l.total_points)||0),0) }
-  })
+  // Monthly daily chart - safe version
+  const monthChartData = (() => {
+    try {
+      const startDate = new Date(monthRange.start)
+      const endDate = new Date(monthRange.end)
+      const days = Math.min(Math.round((endDate - startDate) / (1000*60*60*24)) + 1, 31)
+      return Array.from({length: days}, (_,i) => {
+        const d = new Date(startDate); d.setDate(d.getDate()+i)
+        const ds = d.toISOString().slice(0,10)
+        const dl = monthData.filter(l=>l.log_date===ds)
+        return { day:`${i+1}`, videos:dl.reduce((s,l)=>s+(parseInt(l.total_videos)||0),0), points:dl.reduce((s,l)=>s+(parseFloat(l.total_points)||0),0) }
+      })
+    } catch(e) { return [] }
+  })()
 
   const memberWeekStats = TEAM_MEMBERS.map(m => {
     const logs = weekData.filter(l=>l.member_name===m.name)
@@ -373,7 +380,7 @@ function ReportsView({ weekData, monthData, weekRange, monthRange }) {
   const [generating, setGenerating] = useState(false)
 
   const logs = period==='custom' ? customData : period==='week' ? weekData : monthData
-  const range = period==='week' ? weekRange : period==='month' ? monthRange : { start:customStart, end:customEnd }
+  const range = period==='week' ? weekRange : period==='month' ? monthRange : { start:customStart||'', end:customEnd||'' }
 
   const loadCustom = async () => {
     if (!customStart||!customEnd) return
@@ -431,7 +438,7 @@ function ReportsView({ weekData, monthData, weekRange, monthRange }) {
     ${memberStats.map((m,i)=>{
       const c=cmap[m.color]||'#6366f1'
       return `<div class="mrow">
-        <div class="rank">${medals[i]||`#${i+1}`}</div>
+        <div class="rank">${getMedalStr(i)}</div>
         <div class="av" style="background:${c}22;color:${c};border:1px solid ${c}44">${m.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>
         <div class="mi"><div class="mn">${m.name}</div><div class="mr">${m.role}</div>
         <div class="pb"><div class="pf" style="width:${Math.min(m.pct,100)}%;background:${c}"></div></div></div>
@@ -497,9 +504,10 @@ function ReportsView({ weekData, monthData, weekRange, monthRange }) {
         <div className="label" style={{ marginBottom:16 }}>Performance Breakdown</div>
         {memberStats.map((m,i)=>{
           const c=COLORS[m.color]||COLORS.blue
+          const medal = m.pts>0 ? (['🥇','🥈','🥉'][i]||`#${i+1}`) : `#${i+1}`
           return (
             <div key={m.name} style={{ display:'flex', alignItems:'center', gap:14, background:'rgba(255,255,255,0.02)', borderRadius:10, padding:'14px 16px', marginBottom:8, borderLeft:`3px solid ${c}` }}>
-              <div style={{ fontSize:20, width:28 }}>{medals[i]||`#${i+1}`}</div>
+              <div style={{ fontSize:20, width:28 }}>{medal}</div>
               <div className="avatar" style={{ background:`${c}22`, color:c, width:36, height:36, fontSize:12, border:`1px solid ${c}33`, flexShrink:0 }}>
                 {m.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}
               </div>
