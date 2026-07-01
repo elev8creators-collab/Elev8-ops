@@ -303,7 +303,7 @@ function LeaderboardView({ weekData, monthData }) {
     return { ...m, points:ml.reduce((s,l)=>s+(parseFloat(l.total_points)||0),0), videos:ml.reduce((s,l)=>s+(parseInt(l.total_videos)||0),0), days:new Set(ml.map(l=>l.log_date)).size }
   }).sort((a,b)=>b.points-a.points)
 
-  const medals = ['🥇','🥈','🥉']
+  const getMedal = (i, points) => points > 0 ? (['🥇','🥈','🥉'][i] || `#${i+1}`) : `#${i+1}`
   const maxPts = ranked[0]?.points||1
 
   return (
@@ -342,7 +342,7 @@ function LeaderboardView({ weekData, monthData }) {
               boxShadow:i===0?'0 0 30px rgba(245,158,11,0.1)':'none',
               animation:`slideIn 0.3s ease ${i*80}ms both`,
             }}>
-              <div style={{ fontSize:28, width:36, textAlign:'center' }}>{medals[i]||<span style={{ color:'var(--text3)',fontSize:16 }}>#{i+1}</span>}</div>
+              <div style={{ fontSize:28, width:36, textAlign:'center' }}>{getMedal(i, m.points)}</div>
               <div className="avatar" style={{ background:`${c}22`, color:c, border:`1px solid ${c}44` }}>
                 {m.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}
               </div>
@@ -394,7 +394,7 @@ function ReportsView({ weekData, monthData, weekRange, monthRange }) {
 
   const totalVideos = memberStats.reduce((s,m)=>s+m.vids,0)
   const totalPoints = memberStats.reduce((s,m)=>s+m.pts,0)
-  const medals = ['🥇','🥈','🥉']
+  const getMedal = (i, points) => points > 0 ? (['🥇','🥈','🥉'][i] || `#${i+1}`) : `#${i+1}`
 
   const handleDownload = () => {
     setGenerating(true)
@@ -530,14 +530,43 @@ function SettingsView() {
   const [targets, setTargets] = useState({ Editor:14, Production:12, Social:10 })
   const [members, setMembers] = useState(TEAM_MEMBERS.map(m=>({...m})))
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [activeSection, setActiveSection] = useState('tasks')
 
-  const saveAll = () => {
-    localStorage.setItem('elev8_task_types', JSON.stringify(taskTypes))
-    localStorage.setItem('elev8_targets', JSON.stringify(targets))
-    localStorage.setItem('elev8_members', JSON.stringify(members))
-    setSaved(true)
-    setTimeout(()=>setSaved(false),3000)
+  useEffect(() => { loadSettings() }, [])
+
+  const loadSettings = async () => {
+    try {
+      const { supabase } = await import('../supabase.js')
+      const { data } = await supabase.from('app_settings').select('*')
+      if (!data || data.length === 0) return
+      const byKey = {}
+      data.forEach(r => { byKey[r.key] = r.value })
+      if (byKey.task_types) setTaskTypes(JSON.parse(byKey.task_types))
+      if (byKey.targets) setTargets(JSON.parse(byKey.targets))
+      if (byKey.members) setMembers(JSON.parse(byKey.members))
+    } catch(e) { console.warn('Settings load failed:', e) }
+  }
+
+  const saveAll = async () => {
+    setSaving(true)
+    try {
+      const { supabase } = await import('../supabase.js')
+      const rows = [
+        { key: 'task_types', value: JSON.stringify(taskTypes) },
+        { key: 'targets', value: JSON.stringify(targets) },
+        { key: 'members', value: JSON.stringify(members) },
+      ]
+      for (const row of rows) {
+        await supabase.from('app_settings').upsert(row, { onConflict: 'key' })
+      }
+      setSaved(true)
+      setTimeout(()=>setSaved(false),3000)
+    } catch(e) {
+      console.warn('Settings save failed:', e)
+      alert('Save failed: ' + e.message)
+    }
+    setSaving(false)
   }
 
   const updateTask = (i, field, val) => {
@@ -649,10 +678,10 @@ function SettingsView() {
 
       <div style={{ display:'flex', justifyContent:'flex-end', marginTop:20, gap:12, alignItems:'center' }}>
         {saved && <span style={{ color:'#22d3a5', fontSize:13 }}>✅ Settings saved!</span>}
-        <button className="btn btn-teal" onClick={saveAll}>Save All Settings</button>
+        <button className="btn btn-teal" onClick={saveAll} disabled={saving}>{saving ? "⏳ Saving..." : "Save All Settings"}</button>
       </div>
-      <div style={{ marginTop:12, padding:'12px 16px', background:'rgba(245,158,11,0.06)', borderRadius:8, fontSize:12, color:'#fbbf24', border:'1px solid rgba(245,158,11,0.15)' }}>
-        ⚠️ Settings are saved locally for now. A future update will sync them across all devices.
+      <div style={{ marginTop:12, padding:'12px 16px', background:'rgba(34,211,165,0.06)', borderRadius:8, fontSize:12, color:'#22d3a5', border:'1px solid rgba(34,211,165,0.15)' }}>
+        ✅ Settings sync across all devices via Supabase.
       </div>
     </div>
   )
