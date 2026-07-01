@@ -1,57 +1,47 @@
-const CLICKUP_TOKEN = import.meta.env.VITE_CLICKUP_TOKEN
+const TOKEN = import.meta.env.VITE_CLICKUP_TOKEN
 
-// Fetch tasks assigned to a member from ClickUp
+// Map member names to their ClickUp list IDs
+export const MEMBER_LIST_IDS = {
+  'Abhijot':    '901711705653',
+  'Narsi':      '901711705655',
+  'Narpat':     '901711705661',
+  'Vansh':      '901712160906',
+  'Vansh Verma':'901712160906',
+}
+
 export const fetchMemberTasks = async (memberName) => {
-  if (!CLICKUP_TOKEN) return []
+  const listId = MEMBER_LIST_IDS[memberName]
+  if (!listId || !TOKEN) return []
   try {
-    // Get teams first
-    const teamsRes = await fetch('https://api.clickup.com/api/v2/team', {
-      headers: { 'Authorization': CLICKUP_TOKEN }
-    })
-    const teamsData = await teamsRes.json()
-    const teamId = teamsData.teams?.[0]?.id
-    if (!teamId) return []
-
-    // Get spaces
-    const spacesRes = await fetch(`https://api.clickup.com/api/v2/team/${teamId}/space`, {
-      headers: { 'Authorization': CLICKUP_TOKEN }
-    })
-    const spacesData = await spacesRes.json()
-    
-    // Find editors space
-    const editorsSpace = spacesData.spaces?.find(s => 
-      s.name.toLowerCase().includes('editor') || 
-      s.name.toLowerCase().includes('production')
-    ) || spacesData.spaces?.[0]
-    
-    if (!editorsSpace) return []
-
-    // Get all tasks assigned to this member (due today or overdue)
-    const today = new Date()
-    today.setHours(0,0,0,0)
-    
-    const tasksRes = await fetch(
-      `https://api.clickup.com/api/v2/space/${editorsSpace.id}/task?assignees[]=${memberName}&include_closed=false&subtasks=true`,
-      { headers: { 'Authorization': CLICKUP_TOKEN } }
+    const res = await fetch(
+      `https://api.clickup.com/api/v2/list/${listId}/task?archived=false&include_closed=false&order_by=due_date&reverse=false`,
+      { headers: { 'Authorization': TOKEN } }
     )
-    const tasksData = await tasksRes.json()
-    return tasksData.tasks || []
-  } catch (e) {
+    const data = await res.json()
+    return data.tasks || []
+  } catch(e) {
     console.warn('ClickUp fetch failed:', e)
     return []
   }
 }
 
-// Get all spaces and folders for settings
-export const fetchWorkspaceStructure = async () => {
-  if (!CLICKUP_TOKEN) return null
-  try {
-    const teamsRes = await fetch('https://api.clickup.com/api/v2/team', {
-      headers: { 'Authorization': CLICKUP_TOKEN }
-    })
-    const teamsData = await teamsRes.json()
-    return teamsData.teams?.[0] || null
-  } catch (e) {
-    return null
-  }
+export const getTaskStatusColor = (status) => {
+  const s = (status||'').toLowerCase()
+  if (s === 'complete' || s === 'done') return '#22d3a5'
+  if (s === 'in progress' || s === 'in review') return '#6366f1'
+  if (s === 'to do' || s === 'open') return '#f59e0b'
+  return '#64748b'
+}
+
+export const formatDueDate = (dueDateMs) => {
+  if (!dueDateMs) return null
+  const due = new Date(parseInt(dueDateMs))
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate())
+  const diffDays = Math.round((dueDay - today) / (1000*60*60*24))
+  if (diffDays < 0) return { label: `${Math.abs(diffDays)}d overdue`, color: '#f87171' }
+  if (diffDays === 0) return { label: 'Due today', color: '#fbbf24' }
+  if (diffDays === 1) return { label: 'Due tomorrow', color: '#f59e0b' }
+  return { label: `Due in ${diffDays}d`, color: '#64748b' }
 }
